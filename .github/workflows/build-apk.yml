@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Java
@@ -20,12 +20,11 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Accept Android SDK licenses
-        run: |
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
-
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+
+      - name: Accept SDK licenses
+        run: yes | sdkmanager --licenses
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -33,9 +32,7 @@ jobs:
           gradle-version: '8.7'
 
       - name: Extract project
-        run: |
-          unzip BugToolkit.zip
-          ls -la
+        run: unzip BugToolkit.zip
 
       - name: Build APK
         run: |
