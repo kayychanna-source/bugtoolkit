@@ -36,15 +36,32 @@ jobs:
       - name: Extract project
         run: unzip -q BugToolkit.zip
 
-      - name: Fix JVM targets
+      - name: Fix Kotlin source and JVM targets
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          p = Path("BugToolkit/app/build.gradle.kts")
-          s = p.read_text()
-          s = s.replace(
-              "android {",
-              """android {
+
+          # Fix missing AlertDialog import
+          source = Path("BugToolkit/app/src/main/java/com/jaccksallas/bugtoolkit/MainActivity.kt")
+          code = source.read_text()
+
+          if "import android.app.AlertDialog" not in code:
+              code = code.replace(
+                  "import android.app.Activity",
+                  "import android.app.Activity\nimport android.app.AlertDialog",
+                  1
+              )
+
+          source.write_text(code)
+
+          # Fix Java and Kotlin JVM target mismatch
+          gradle_file = Path("BugToolkit/app/build.gradle.kts")
+          gradle_code = gradle_file.read_text()
+
+          if "sourceCompatibility = JavaVersion.VERSION_17" not in gradle_code:
+              gradle_code = gradle_code.replace(
+                  "android {",
+                  """android {
               compileOptions {
                   sourceCompatibility = JavaVersion.VERSION_17
                   targetCompatibility = JavaVersion.VERSION_17
@@ -53,9 +70,12 @@ jobs:
                   jvmTarget = "17"
               }
           """,
-              1
-          )
-          p.write_text(s)
+                  1
+              )
+
+          gradle_file.write_text(gradle_code)
+
+          print("Source code and JVM fixes applied.")
           PY
 
       - name: Build APK
