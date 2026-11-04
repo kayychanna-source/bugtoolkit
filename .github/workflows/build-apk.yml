@@ -14,22 +14,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Java 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
 
-      - name: Accept Android licenses
-        run: yes | sdkmanager --licenses || true
+      - name: Install SDK packages
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Install Android SDK packages
-        run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-
-      - name: Set up Gradle
+      - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
@@ -37,16 +36,15 @@ jobs:
       - name: Extract project
         run: unzip -q BugToolkit.zip
 
-      - name: Set Java and Kotlin JVM targets to 17
+      - name: Fix JVM targets
         run: |
           python3 - <<'PY'
           from pathlib import Path
-
-          path = Path("BugToolkit/app/build.gradle.kts")
-          text = path.read_text()
-
-          marker = "android {"
-          addition = '''android {
+          p = Path("BugToolkit/app/build.gradle.kts")
+          s = p.read_text()
+          s = s.replace(
+              "android {",
+              """android {
               compileOptions {
                   sourceCompatibility = JavaVersion.VERSION_17
                   targetCompatibility = JavaVersion.VERSION_17
@@ -54,15 +52,10 @@ jobs:
               kotlinOptions {
                   jvmTarget = "17"
               }
-          '''
-
-          if "sourceCompatibility = JavaVersion.VERSION_17" not in text:
-              if marker not in text:
-                  raise SystemExit("Tidak menemukan blok android { di app/build.gradle.kts")
-              text = text.replace(marker, addition, 1)
-
-          path.write_text(text)
-          print("Target Java dan Kotlin sudah disetel ke 17.")
+          """,
+              1
+          )
+          p.write_text(s)
           PY
 
       - name: Build APK
