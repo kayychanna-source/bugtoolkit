@@ -1,74 +1,76 @@
 name: Build BugToolkit APK
-on:
-workflow_dispatch:
-push:
-branches:
-- main
+
+'on':
+  workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
-build:
-runs-on: ubuntu-latest
+  build:
+    runs-on: ubuntu-latest
 
-steps:
-  - name: Checkout
-    uses: actions/checkout@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  - name: Setup Java
-    uses: actions/setup-java@v4
-    with:
-      distribution: temurin
-      java-version: '17'
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
-  - name: Setup Android SDK
-    uses: android-actions/setup-android@v3
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
 
-  - name: Accept Android licenses
-    run: yes | sdkmanager --licenses || true
+      - name: Accept Android licenses
+        run: yes | sdkmanager --licenses || true
 
-  - name: Install Android SDK
-    run: |
-      sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+      - name: Install Android SDK packages
+        run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
-  - name: Setup Gradle
-    uses: gradle/actions/setup-gradle@v4
-    with:
-      gradle-version: '8.7'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
 
-  - name: Extract project
-    run: unzip -q BugToolkit.zip
+      - name: Extract project
+        run: unzip -q BugToolkit.zip
 
-  - name: Fix Java and Kotlin JVM targets
-    run: |
-      python3 - <<'PY'
-      from pathlib import Path
+      - name: Set Java and Kotlin JVM targets to 17
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
 
-      p = Path("BugToolkit/app/build.gradle.kts")
-      s = p.read_text()
+          path = Path("BugToolkit/app/build.gradle.kts")
+          text = path.read_text()
 
-      s = s.replace(
-          "android {",
-          """android {
-          compileOptions {
-              sourceCompatibility = JavaVersion.VERSION_17
-              targetCompatibility = JavaVersion.VERSION_17
-          }
-          kotlinOptions {
-              jvmTarget = "17"
-          }
-      """,
-          1
-      )
+          marker = "android {"
+          addition = '''android {
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+          '''
 
-      p.write_text(s)
-      PY
+          if "sourceCompatibility = JavaVersion.VERSION_17" not in text:
+              if marker not in text:
+                  raise SystemExit("Tidak menemukan blok android { di app/build.gradle.kts")
+              text = text.replace(marker, addition, 1)
 
-  - name: Build APK
-    run: |
-      cd BugToolkit
-      gradle assembleDebug
+          path.write_text(text)
+          print("Target Java dan Kotlin sudah disetel ke 17.")
+          PY
 
-  - name: Upload APK
-    uses: actions/upload-artifact@v4
-    with:
-      name: BugToolkit-APK
-      path: BugToolkit/app/build/outputs/apk/debug/app-debug.apk
+      - name: Build APK
+        working-directory: BugToolkit
+        run: gradle assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: BugToolkit-APK
+          path: BugToolkit/app/build/outputs/apk/debug/app-debug.apk
